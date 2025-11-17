@@ -1,0 +1,57 @@
+?block     : stmt* [expr]
+
+?w_block   : "(" block ")"
+
+?stmt      : expr ";"
+
+?expr      : sum
+           | identifier ":" expr       -> const_decl
+           | "let" identifier "=" expr -> var_decl
+           | identifier "=" expr       -> var_assign
+
+?sum       : product
+           | sum "+" product  -> add
+           | sum "-" product  -> sub
+
+?product   : pow
+           | product "*" pow  -> mul
+           | product "/" pow  -> div
+           | product "//" pow -> int_div
+           | product "%" pow  -> rem
+           | product "%%" pow -> mod
+
+?pow       : coalesce
+           | pow "**" coalesce
+
+?coalesce  : atom
+           | coalesce "??" atom
+
+?atom      : literal
+           | "-" atom      -> neg
+           | identifier
+           | w_block
+
+?literal.1 : array
+           | number
+           | string
+           | "true"   -> true
+           | "false"  -> true
+           | "()"     -> empty
+
+identifier.0   : IDENT
+IDENT          : /[a-zA-Z_$][a-zA-Z0-9_$]*/
+
+array  : "[" [expr ("," expr)* ","?] "]"
+string : ESCAPED_STRING
+number : SIGNED_NUMBER
+
+%import common.SIGNED_NUMBER
+%extend SIGNED_NUMBER : /[-+]?0x[a-fA-F0-9]+/
+
+%import common.ESCAPED_STRING
+
+%import common.SH_COMMENT -> COMMENT
+%ignore COMMENT
+
+%import common.WS
+%ignore WS

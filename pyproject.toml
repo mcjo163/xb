@@ -1,0 +1,19 @@
+[project]
+name = "xb"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Micah Johnson", email = "mjohnson@cltexam.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "lark>=1.3.1",
+]
+
+[project.scripts]
+xb = "xb:main"
+
+[build-system]
+requires = ["uv_build>=0.8.14,<0.9.0"]
+build-backend = "uv_build"
