@@ -22,6 +22,10 @@ class AstTransformer(Transformer):
     var_decl = t.VarDecl
     assign = t.Assign
 
+    # logic
+    and_ = t.And
+    or_ = t.Or
+
     # compare
     eq = t.Equal
     neq = t.NotEqual
@@ -29,10 +33,6 @@ class AstTransformer(Transformer):
     gt = t.GreaterThan
     lte = t.LessThanOrEqual
     gte = t.GreaterThanOrEqual
-
-    # logic
-    and_ = t.And
-    or_ = t.Or
 
     # sum
     add = t.Add
@@ -42,7 +42,6 @@ class AstTransformer(Transformer):
     mul = t.Multiply
     div = t.Divide
     int_div = t.IntegerDivide
-    rem = t.Remainder
     mod = t.Mod
 
     # pow

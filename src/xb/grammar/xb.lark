@@ -3,22 +3,22 @@ p_block    : "(" block ")"
 
 ?stmt      : expr ";"
 
-?expr      : compare
+?expr      : logic
            | identifier ":" expr       -> const_decl
            | "let" identifier "=" expr -> var_decl
            | expr "=" expr             -> assign
 
-?compare   : logic
-           | compare "==" logic -> eq
-           | compare "!=" logic -> neq
-           | compare "<" logic  -> lt
-           | compare ">" logic  -> gt
-           | compare "<=" logic -> lte
-           | compare ">=" logic -> gte
+?logic     : compare
+           | logic "&&" compare -> and_
+           | logic "||" compare -> or_
 
-?logic     : sum
-           | logic "&&" sum -> and_
-           | logic "||" sum -> or_
+?compare   : sum
+           | compare "==" sum -> eq
+           | compare "!=" sum -> neq
+           | compare "<" sum  -> lt
+           | compare ">" sum  -> gt
+           | compare "<=" sum -> lte
+           | compare ">=" sum -> gte
 
 ?sum       : product
            | sum "+" product -> add
@@ -28,8 +28,7 @@ p_block    : "(" block ")"
            | product "*" pow  -> mul
            | product "/" pow  -> div
            | product "//" pow -> int_div
-           | product "%" pow  -> rem
-           | product "%%" pow -> mod
+           | product "%" pow  -> mod
 
 ?pow       : coalesce
            | pow "**" coalesce
@@ -78,7 +77,7 @@ IDENT.0    : /[a-zA-Z_$][a-zA-Z0-9_$]*/
 %import common (SIGNED_NUMBER, ESCAPED_STRING, WS)
 %import common.SH_COMMENT -> COMMENT
 
-%extend SIGNED_NUMBER : /[-+]?0x[a-fA-F0-9]+/
+%extend SIGNED_NUMBER : /[-+]?0[xX][a-fA-F0-9]+/
 
 %ignore COMMENT
 %ignore WS

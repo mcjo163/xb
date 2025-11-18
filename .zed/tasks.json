@@ -1,0 +1,8 @@
+[
+  {
+    "label": "pytest",
+    "command": "uv",
+    "args": ["run", "pytest"],
+    "reveal": "no_focus"
+  }
+]

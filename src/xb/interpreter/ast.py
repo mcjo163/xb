@@ -2,12 +2,13 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any, Callable
-
+from typing import Callable
 from lark import Token
+
+import xb.interpreter.value as v
+from xb.interpreter.value import Op
 from xb.interpreter.environment import Environment
 from xb.interpreter.errors import XbRuntimeError
-
 
 class AstNode(ABC):
     # TODO: meta info?
@@ -16,7 +17,7 @@ class AstNode(ABC):
 
 class EvaluatableAstNode(AstNode):
     @abstractmethod
-    def evaluate(self, env: Environment) -> Any:
+    def evaluate(self, env: Environment) -> v.Value:
         raise NotImplementedError
 
 
@@ -31,10 +32,10 @@ class Block(EvaluatableAstNode):
             if stmt:
                 stmt.evaluate(env)
 
-        return ret.evaluate(env) if ret else None
+        return ret.evaluate(env) if ret else v.Empty()
 
 
-Assigner = Callable[[object], None]
+Assigner = Callable[[v.Value], None]
 class Expr(EvaluatableAstNode):
     def evaluate_assignment_target(self, env: Environment) -> Assigner:
         """
@@ -81,84 +82,86 @@ class Assign(Expr):
         return value
 
 
-class Compare(Expr):
-    pass
-
-
-@dataclass
-class Equal(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) == self.rhs.evaluate(env)
-
-
-@dataclass
-class NotEqual(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) != self.rhs.evaluate(env)
-
-
-@dataclass
-class LessThan(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) < self.rhs.evaluate(env)
-
-
-@dataclass
-class GreaterThan(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) > self.rhs.evaluate(env)
-
-
-@dataclass
-class LessThanOrEqual(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) <= self.rhs.evaluate(env)
-
-
-@dataclass
-class GreaterThanOrEqual(Compare):
-    lhs: Compare
-    rhs: Logic
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) >= self.rhs.evaluate(env)
-
-
-class Logic(Compare):
+class Logic(Expr):
     pass
 
 
 @dataclass
 class And(Logic):
     lhs: Logic
-    rhs: Sum
+    rhs: Compare
 
     def evaluate(self, env):
+        # && is short-circuiting
         return self.lhs.evaluate(env) and self.rhs.evaluate(env)
 
 
 @dataclass
 class Or(Logic):
     lhs: Logic
+    rhs: Compare
+
+    def evaluate(self, env):
+        # || is short-circuiting
+        return self.lhs.evaluate(env) or self.rhs.evaluate(env)
+
+
+class Compare(Logic):
+    pass
+
+
+@dataclass
+class Equal(Compare):
+    lhs: Compare
     rhs: Sum
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) or self.rhs.evaluate(env)
+        return Op.eq(self.lhs.evaluate(env), self.rhs.evaluate(env))
+
+
+@dataclass
+class NotEqual(Compare):
+    lhs: Compare
+    rhs: Sum
+
+    def evaluate(self, env):
+        return Op.neq(self.lhs.evaluate(env), self.rhs.evaluate(env))
+
+
+@dataclass
+class LessThan(Compare):
+    lhs: Compare
+    rhs: Sum
+
+    def evaluate(self, env):
+        return Op.lt(self.lhs.evaluate(env), self.rhs.evaluate(env))
+
+
+@dataclass
+class GreaterThan(Compare):
+    lhs: Compare
+    rhs: Sum
+
+    def evaluate(self, env):
+        return Op.gt(self.lhs.evaluate(env), self.rhs.evaluate(env))
+
+
+@dataclass
+class LessThanOrEqual(Compare):
+    lhs: Compare
+    rhs: Sum
+
+    def evaluate(self, env):
+        return Op.lte(self.lhs.evaluate(env), self.rhs.evaluate(env))
+
+
+@dataclass
+class GreaterThanOrEqual(Compare):
+    lhs: Compare
+    rhs: Sum
+
+    def evaluate(self, env):
+        return Op.gte(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 class Sum(Logic):
@@ -171,7 +174,7 @@ class Add(Sum):
     rhs: Product
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) + self.rhs.evaluate(env)
+        return Op.add(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 @dataclass
@@ -180,7 +183,7 @@ class Subtract(Sum):
     rhs: Product
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) - self.rhs.evaluate(env)
+        return Op.sub(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 class Product(Sum):
@@ -193,7 +196,7 @@ class Multiply(Product):
     rhs: PowNode
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) * self.rhs.evaluate(env)
+        return Op.mul(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 @dataclass
@@ -202,7 +205,7 @@ class Divide(Product):
     rhs: PowNode
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) / self.rhs.evaluate(env)
+        return Op.div(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 @dataclass
@@ -211,16 +214,7 @@ class IntegerDivide(Product):
     rhs: PowNode
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) // self.rhs.evaluate(env)
-
-
-@dataclass
-class Remainder(Product):
-    lhs: Product
-    rhs: PowNode
-
-    def evaluate(self, env):
-        return self.lhs.evaluate(env) % self.rhs.evaluate(env)
+        return Op.int_div(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 @dataclass
@@ -229,8 +223,7 @@ class Mod(Product):
     rhs: PowNode
 
     def evaluate(self, env):
-        # TODO: double check this
-        return self.lhs.evaluate(env) % self.rhs.evaluate(env)
+        return Op.mod(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 class PowNode(Product):
@@ -243,7 +236,7 @@ class Pow(PowNode):
     rhs: CoalesceNode
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env) ** self.rhs.evaluate(env)
+        return Op.pow(self.lhs.evaluate(env), self.rhs.evaluate(env))
 
 
 class CoalesceNode(PowNode):
@@ -257,7 +250,7 @@ class Coalesce(CoalesceNode):
 
     def evaluate(self, env):
         left = self.lhs.evaluate(env)
-        return left if left is not None else self.rhs.evaluate(env)
+        return left if not Op.eq(left, v.Empty()) else self.rhs.evaluate(env)
 
 
 class Unary(CoalesceNode):
@@ -269,7 +262,7 @@ class Negate(Unary):
     val: Unary
 
     def evaluate(self, env):
-        return -(self.val.evaluate(env))
+        return Op.neg(self.val.evaluate(env))
 
 
 @dataclass
@@ -277,7 +270,7 @@ class Not(Unary):
     val: Unary
 
     def evaluate(self, env):
-        return not self.val.evaluate(env)
+        return Op.not_(self.val.evaluate(env))
 
 
 class Access(Unary):
@@ -291,24 +284,14 @@ class KeyAccess(Access):
 
     def evaluate(self, env):
         key = str(self.key.token)
-        try:
-            return self.lhs.evaluate(env)[key]
-        except KeyError:
-            raise XbRuntimeError(f"unrecognized key '{key}'")
-        except TypeError:
-            raise XbRuntimeError(f"unsupported key '{key}'")
+        return self.lhs.evaluate(env).key_get(key)
 
     def evaluate_assignment_target(self, env) -> Assigner:
         target = self.lhs.evaluate(env)
         key = str(self.key.token)
 
-        def assign(v: object):
-            # TODO: check for illegal assignment (const, bad type, etc.)...
-            # ideally encapsulated in the Value class
-            try:
-                target[key] = v
-            except TypeError:
-                raise XbRuntimeError(f"cannot assign to keys on type '{type(target).__name__}'")
+        def assign(v: v.Value):
+            target.key_set(key, v)
         return assign
 
 
@@ -317,31 +300,16 @@ class IndexAccess(Access):
     lhs: Access
     index_expr: Expr
 
-    def evaluate_index(self, env: Environment) -> object:
-        raw_index = self.index_expr.evaluate(env)
-        return int(raw_index) if type(raw_index) is float else raw_index
-
     def evaluate(self, env):
-        index = self.evaluate_index(env)
-        try:
-            return self.lhs.evaluate(env)[index]
-
-        except (KeyError, TypeError):
-            raise XbRuntimeError(f"unsupported index '{index}'")
-        except IndexError:
-            raise XbRuntimeError("index out of range")
+        index = self.index_expr.evaluate(env)
+        return self.lhs.evaluate(env).index_get(index)
 
     def evaluate_assignment_target(self, env) -> Assigner:
         target = self.lhs.evaluate(env)
-        index = self.evaluate_index(env)
+        index = self.index_expr.evaluate(env)
 
-        def assign(v: object):
-            try:
-                target[index] = v
-            except (KeyError, TypeError):
-                raise XbRuntimeError(f"unsupported index '{index}'")
-            except IndexError:
-                raise XbRuntimeError("index out of range")
+        def assign(v: v.Value):
+            target.index_set(index, v)
         return assign
 
 
@@ -357,8 +325,8 @@ class Identifier(Atom):
         return env[self.token]
 
     def evaluate_assignment_target(self, env) -> Assigner:
-        def assign(o: object):
-            env[self.token] = o
+        def assign(v: v.Value):
+            env[self.token] = v
         return assign
 
 
@@ -385,7 +353,7 @@ class Number(Literal):
     token: Token
 
     def evaluate(self, env):
-        return float(self.token)
+        return v.Number.from_node(self, env)
 
 
 @dataclass
@@ -393,7 +361,7 @@ class String(Literal):
     token: Token
 
     def evaluate(self, env):
-        return self.token[1:-1]
+        return v.String.from_node(self, env)
 
 
 @dataclass
@@ -401,13 +369,13 @@ class Bool(Literal):
     token: Token
 
     def evaluate(self, env):
-        return self.token == "true"
+        return v.Boolean.from_node(self, env)
 
 
 @dataclass
 class Empty(Literal):
     def evaluate(self, env):
-        return None
+        return v.Empty.from_node(self, env)
 
 
 class Construct(Atom):
@@ -419,15 +387,12 @@ class Array(Construct):
     exprs: list[Expr]
 
     def evaluate(self, env):
-        return [*map(
-            lambda e: e.evaluate(env),
-            self.exprs,
-        )]
+        return v.Array.from_node(self, env)
 
 
 class Pair(AstNode):
     @abstractmethod
-    def key_value(self, env: Environment) -> tuple[str, object]:
+    def key_value_const(self, env: Environment) -> tuple[str, v.Value, bool]:
         raise NotImplementedError
 
 
@@ -435,9 +400,9 @@ class Pair(AstNode):
 class InferPair(Pair):
     ident: Identifier
 
-    def key_value(self, env):
+    def key_value_const(self, env):
         name = str(self.ident.token)
-        return name, env[name]
+        return name, env[name], env.is_const(name)
 
 
 @dataclass
@@ -445,8 +410,8 @@ class ConstPair(Pair):
     key: Key
     expr: Expr
 
-    def key_value(self, env):
-        return str(self.key.token), self.expr.evaluate(env)
+    def key_value_const(self, env):
+        return str(self.key.token), self.expr.evaluate(env), True
 
 
 @dataclass
@@ -454,8 +419,8 @@ class VarPair(Pair):
     key: Key
     expr: Expr
 
-    def key_value(self, env):
-        return str(self.key.token), self.expr.evaluate(env)
+    def key_value_const(self, env):
+        return str(self.key.token), self.expr.evaluate(env), False
 
 
 @dataclass
@@ -463,10 +428,4 @@ class Object(Construct):
     pairs: list[Pair]
 
     def evaluate(self, env):
-        return {
-            k: v
-            for k, v in map(
-                lambda p: p.key_value(env),
-                self.pairs,
-            )
-        }
+        return v.Object.from_node(self, env)

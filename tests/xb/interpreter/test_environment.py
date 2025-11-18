@@ -1,6 +1,9 @@
 import pytest
+
+import xb.interpreter.value as v
 from xb.interpreter.environment import Environment
 from xb.interpreter.errors import XbRuntimeError
+from xb.interpreter.value import Op
 
 
 def test_getitem_raises_keyerror_for_missing_key():
@@ -12,68 +15,68 @@ def test_getitem_raises_keyerror_for_missing_key():
 def test_setitem_raises_keyerror_for_missing_key():
     env = Environment()
     with pytest.raises(XbRuntimeError):
-        env["undefined_key"] = True
+        env["undefined_key"] = v.Boolean(True)
 
 
 def test_setitem_raises_keyerror_for_const_key():
     env = Environment()
-    env.declare_const("const", 5)
+    env.declare_const("const", v.Number(5))
 
     with pytest.raises(XbRuntimeError):
-        env["const"] = 6
+        env["const"] = v.Number(6)
 
 
 def test_setitem_works_for_variable_key():
     env = Environment()
-    env.declare_var("var", 5)
+    env.declare_var("var", v.Number(5))
 
-    env["var"] = 8
+    env["var"] = v.Number(8)
 
-    assert env["var"] == 8
+    assert Op.eq(env["var"], v.Number(8))
 
 
 def test_getitem_works():
     env = Environment()
-    env.declare_const("const", 1)
-    env.declare_var("var", "hey")
+    env.declare_const("const", v.Number(1))
+    env.declare_var("var", v.String("hey"))
 
-    assert env["const"] == 1
-    assert env["var"] == "hey"
+    assert Op.eq(env["const"], v.Number(1))
+    assert Op.eq(env["var"], v.String("hey"))
 
 
 def test_getitem_resolves_parent_var():
     parent_env = Environment()
-    parent_env.declare_const("parent_var", 42)
+    parent_env.declare_const("parent_var", v.Number(42))
 
     env = Environment(parent_env)
 
-    assert env["parent_var"] == 42
+    assert Op.eq(env["parent_var"], v.Number(42))
 
 
 def test_getitem_shadows_parent_var():
     parent_env = Environment()
-    parent_env.declare_const("var", 42)
+    parent_env.declare_const("var", v.Number(42))
 
     env = Environment(parent_env)
-    env.declare_var("var", 44)
+    env.declare_var("var", v.Number(44))
 
-    assert env["var"] == 44
+    assert Op.eq(env["var"], v.Number(44))
 
 
 def test_setitem_sets_parent_var():
     parent_env = Environment()
-    parent_env.declare_var("parent_var", 45)
+    parent_env.declare_var("parent_var", v.Number(45))
 
     env = Environment(parent_env)
-    env["parent_var"] = 46
+    env["parent_var"] = v.Number(46)
 
-    assert env["parent_var"] == 46
-    assert parent_env["parent_var"] == 46
+    assert Op.eq(env["parent_var"], v.Number(46))
+    assert Op.eq(parent_env["parent_var"], v.Number(46))
 
 
 def test_cannot_redeclare_name():
     env = Environment()
-    env.declare_const("value", 5)
+    env.declare_const("value", v.Number(5))
 
     with pytest.raises(XbRuntimeError):
-        env.declare_var("value", 6)
+        env.declare_var("value", v.Number(6))

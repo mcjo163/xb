@@ -13,7 +13,7 @@ def prompt() -> str | None:
 def exec_xb(src: str, env=Environment()):
     try:
         if block := parse(src):
-            print(block.evaluate(env))
+            print(block.evaluate(env).display())
 
     except Exception as e:
         if isinstance(e, XbError):
