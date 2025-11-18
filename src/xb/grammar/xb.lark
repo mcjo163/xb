@@ -78,7 +78,7 @@ IDENT.0    : /[a-zA-Z_$][a-zA-Z0-9_$]*/
 %import common (SIGNED_NUMBER, ESCAPED_STRING, WS)
 %import common.SH_COMMENT -> COMMENT
 
-%extend SIGNED_NUMBER : /[-+]?0x[a-fA-F0-9]+/
+%extend SIGNED_NUMBER : /[-+]?0[xX][a-fA-F0-9]+/
 
 %ignore COMMENT
 %ignore WS
