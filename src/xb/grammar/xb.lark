@@ -1,0 +1,83 @@
+block      : stmt* [expr]
+p_block    : "(" block ")"
+
+?stmt      : expr ";"
+
+?expr      : compare
+           | identifier ":" expr       -> const_decl
+           | "let" identifier "=" expr -> var_decl
+           | expr "=" expr             -> assign
+
+?compare   : logic
+           | compare "==" logic -> eq
+           | compare "!=" logic -> neq
+           | compare "<" logic  -> lt
+           | compare ">" logic  -> gt
+           | compare "<=" logic -> lte
+           | compare ">=" logic -> gte
+
+?logic     : sum
+           | logic "&&" sum -> and_
+           | logic "||" sum -> or_
+
+?sum       : product
+           | sum "+" product -> add
+           | sum "-" product -> sub
+
+?product   : pow
+           | product "*" pow  -> mul
+           | product "/" pow  -> div
+           | product "//" pow -> int_div
+           | product "%" pow  -> rem
+           | product "%%" pow -> mod
+
+?pow       : coalesce
+           | pow "**" coalesce
+
+?coalesce  : unary
+           | coalesce "??" unary
+
+?unary     : access
+           | "-" unary -> neg
+           | "!" unary -> not_
+
+?access    : atom
+           | access "." identifier -> key_access
+           | access "[" atom "]"   -> index_access
+
+?atom      : literal
+           | construct
+           | identifier
+           | p_block
+
+?construct : object
+           | array
+
+?literal   : number
+           | string
+           | bool
+           | "()"   -> empty
+
+array      : "[" (expr ("," expr)* ","?)? "]"
+object     : "{" (pair ("," pair)* ","?)? "}"
+
+pair       : identifier          -> infer_pair
+           | identifier ":" expr -> const_pair
+           | identifier "=" expr -> var_pair
+
+identifier : IDENT
+
+number     : SIGNED_NUMBER
+string     : ESCAPED_STRING
+bool       : BOOL
+
+BOOL.1     : "true" | "false"
+IDENT.0    : /[a-zA-Z_$][a-zA-Z0-9_$]*/
+
+%import common (SIGNED_NUMBER, ESCAPED_STRING, WS)
+%import common.SH_COMMENT -> COMMENT
+
+%extend SIGNED_NUMBER : /[-+]?0x[a-fA-F0-9]+/
+
+%ignore COMMENT
+%ignore WS
