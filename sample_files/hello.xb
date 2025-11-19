@@ -1,0 +1,8 @@
+message : "hello" + (
+  let message_target = "world";
+  message_target = ", " + message_target;
+
+  message_target + "!"
+);
+
+message
