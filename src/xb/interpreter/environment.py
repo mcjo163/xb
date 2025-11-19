@@ -28,10 +28,15 @@ class Environment:
         raise XbRuntimeError(f"name '{name}' not recognized in this scope")
 
     def __setitem__(self, name: str, value: object) -> None:
-        if name in self.dict.keys() and not self.dict[name].is_const:
+        if name in self.dict.keys():
+            if self.dict[name].is_const:
+                raise XbRuntimeError(f"name '{name}' is constant")
+
             self.dict[name].value = value
+
         elif self.parent:
             self.parent[name] = value
+
         else:
             raise XbRuntimeError(f"name '{name}' not recognized in this scope")
 

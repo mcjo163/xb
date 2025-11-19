@@ -67,6 +67,7 @@ class AstTransformer(Transformer):
     array = collect_args(t.Array)
     object = collect_args(t.Object)
 
+    key = t.Key
     infer_pair = t.InferPair
     const_pair = t.ConstPair
     var_pair = t.VarPair

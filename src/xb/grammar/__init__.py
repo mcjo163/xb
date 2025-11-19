@@ -6,18 +6,21 @@ from xb.grammar.syntax_errors import handle_unexpected_input
 from xb.grammar.transformer import AstTransformer
 from xb.interpreter.ast import Block
 
+
 parser = Lark.open(
     "xb.lark",
     rel_to=__file__,
     start="block",
     parser="lalr",
-    transformer=AstTransformer()
+    # transformer=AstTransformer()
 )
 
 
 def parse(src: str) -> Block:
     try:
-        return cast(Block, parser.parse(src))
+        tree = parser.parse(src)
+        print(tree.pretty())
+        return cast(Block, AstTransformer().transform(tree))
 
     except UnexpectedInput as u:
         handle_unexpected_input(u, src, parser)

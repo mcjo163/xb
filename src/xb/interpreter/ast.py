@@ -2,9 +2,11 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any, Callable
 
 from lark import Token
 from xb.interpreter.environment import Environment
+from xb.interpreter.errors import XbRuntimeError
 
 
 class AstNode(ABC):
@@ -14,7 +16,7 @@ class AstNode(ABC):
 
 class EvaluatableAstNode(AstNode):
     @abstractmethod
-    def evaluate(self, env: Environment):
+    def evaluate(self, env: Environment) -> Any:
         raise NotImplementedError
 
 
@@ -32,9 +34,17 @@ class Block(EvaluatableAstNode):
         return ret.evaluate(env) if ret else None
 
 
+Assigner = Callable[[object], None]
 class Expr(EvaluatableAstNode):
-    # TODO: some way to "evaluate" to an lvalue vs an rvalue
-    pass
+    def evaluate_assignment_target(self, env: Environment) -> Assigner:
+        """
+        Most expressions cannot be assigned to. Valid assignment
+        targets should override this implementation.
+
+        Return a function to call with the assigned value.
+        """
+        _ = env
+        raise XbRuntimeError("invalid assignment target")
 
 
 @dataclass
@@ -65,7 +75,10 @@ class Assign(Expr):
     expr: Expr
 
     def evaluate(self, env):
-        pass
+        assign = self.target.evaluate_assignment_target(env)
+        value = self.expr.evaluate(env)
+        assign(value)
+        return value
 
 
 class Compare(Expr):
@@ -274,19 +287,62 @@ class Access(Unary):
 @dataclass
 class KeyAccess(Access):
     lhs: Access
-    key: Identifier
+    key: Key
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env)[str(self.key.token)]
+        key = str(self.key.token)
+        try:
+            return self.lhs.evaluate(env)[key]
+        except KeyError:
+            raise XbRuntimeError(f"unrecognized key '{key}'")
+        except TypeError:
+            raise XbRuntimeError(f"unsupported key '{key}'")
+
+    def evaluate_assignment_target(self, env) -> Assigner:
+        target = self.lhs.evaluate(env)
+        key = str(self.key.token)
+
+        def assign(v: object):
+            # TODO: check for illegal assignment (const, bad type, etc.)...
+            # ideally encapsulated in the Value class
+            try:
+                target[key] = v
+            except TypeError:
+                raise XbRuntimeError(f"cannot assign to keys on type '{type(target).__name__}'")
+        return assign
 
 
 @dataclass
 class IndexAccess(Access):
     lhs: Access
-    index_expr: Atom
+    index_expr: Expr
+
+    def evaluate_index(self, env: Environment) -> object:
+        raw_index = self.index_expr.evaluate(env)
+        return int(raw_index) if type(raw_index) is float else raw_index
 
     def evaluate(self, env):
-        return self.lhs.evaluate(env)[int(self.index_expr.evaluate(env))]
+        index = self.evaluate_index(env)
+        try:
+            return self.lhs.evaluate(env)[index]
+
+        except (KeyError, TypeError):
+            raise XbRuntimeError(f"unsupported index '{index}'")
+        except IndexError:
+            raise XbRuntimeError("index out of range")
+
+    def evaluate_assignment_target(self, env) -> Assigner:
+        target = self.lhs.evaluate(env)
+        index = self.evaluate_index(env)
+
+        def assign(v: object):
+            try:
+                target[index] = v
+            except (KeyError, TypeError):
+                raise XbRuntimeError(f"unsupported index '{index}'")
+            except IndexError:
+                raise XbRuntimeError("index out of range")
+        return assign
 
 
 class Atom(Access):
@@ -299,6 +355,16 @@ class Identifier(Atom):
 
     def evaluate(self, env):
         return env[self.token]
+
+    def evaluate_assignment_target(self, env) -> Assigner:
+        def assign(o: object):
+            env[self.token] = o
+        return assign
+
+
+@dataclass
+class Key(AstNode):
+    token: Token
 
 
 @dataclass
@@ -376,20 +442,20 @@ class InferPair(Pair):
 
 @dataclass
 class ConstPair(Pair):
-    ident: Identifier
+    key: Key
     expr: Expr
 
     def key_value(self, env):
-        return str(self.ident.token), self.expr.evaluate(env)
+        return str(self.key.token), self.expr.evaluate(env)
 
 
 @dataclass
 class VarPair(Pair):
-    ident: Identifier
+    key: Key
     expr: Expr
 
     def key_value(self, env):
-        return str(self.ident.token), self.expr.evaluate(env)
+        return str(self.key.token), self.expr.evaluate(env)
 
 
 @dataclass

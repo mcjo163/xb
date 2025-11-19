@@ -42,8 +42,8 @@ p_block    : "(" block ")"
            | "!" unary -> not_
 
 ?access    : atom
-           | access "." identifier -> key_access
-           | access "[" atom "]"   -> index_access
+           | access "." key      -> key_access
+           | access "[" expr "]" -> index_access
 
 ?atom      : literal
            | construct
@@ -61,11 +61,12 @@ p_block    : "(" block ")"
 array      : "[" (expr ("," expr)* ","?)? "]"
 object     : "{" (pair ("," pair)* ","?)? "}"
 
-pair       : identifier          -> infer_pair
-           | identifier ":" expr -> const_pair
-           | identifier "=" expr -> var_pair
+pair       : identifier   -> infer_pair
+           | key ":" expr -> const_pair
+           | key "=" expr -> var_pair
 
 identifier : IDENT
+key        : IDENT
 
 number     : SIGNED_NUMBER
 string     : ESCAPED_STRING
