@@ -22,6 +22,9 @@ class AstTransformer(Transformer):
     var_decl = t.VarDecl
     assign = t.Assign
 
+    # if expr
+    if_ = t.If
+
     # logic
     and_ = t.And
     or_ = t.Or

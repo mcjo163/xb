@@ -82,7 +82,27 @@ class Assign(Expr):
         return value
 
 
-class Logic(Expr):
+class IfNode(Expr):
+    pass
+
+
+@dataclass
+class If(IfNode):
+    condition_block: NestedBlock
+    true_expr: Expr
+    false_expr: Expr | None
+
+    def evaluate(self, env):
+        if self.condition_block.evaluate(env):
+            return self.true_expr.evaluate(env)
+
+        if self.false_expr is not None:
+            return self.false_expr.evaluate(env)
+
+        return v.Empty()
+
+
+class Logic(IfNode):
     pass
 
 

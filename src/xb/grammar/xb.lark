@@ -3,10 +3,13 @@ p_block    : "(" block ")"
 
 ?stmt      : expr ";"
 
-?expr      : logic
+?expr      : if_
            | identifier ":" expr       -> const_decl
            | "let" identifier "=" expr -> var_decl
            | expr "=" expr             -> assign
+
+?if_       : logic
+           | "if" p_block expr ["else" expr]
 
 ?logic     : compare
            | logic "&&" compare -> and_
