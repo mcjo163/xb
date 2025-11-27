@@ -1,6 +1,6 @@
 from xb.grammar import parse
 from xb.interpreter.environment import Environment
-from xb.interpreter.errors import XbError
+from xb.interpreter.errors import XbError, XbInternalError
 
 
 def prompt() -> str | None:
@@ -19,7 +19,7 @@ def exec_xb(src: str, env=Environment()):
         if isinstance(e, XbError):
             print(e)
         else:
-            print(e)
+            print(XbInternalError(str(e)))
 
 
 def repl():

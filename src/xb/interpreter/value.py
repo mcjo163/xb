@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from xb.interpreter.environment import Environment
 from xb.interpreter.errors import XbRuntimeError
 
 if TYPE_CHECKING:
     import xb.interpreter.ast as t  # noqa: F401, `t` used in string types to avoid circular import
-    from xb.interpreter.environment import Environment
 
 class Op:
     """
@@ -115,6 +116,10 @@ class Op:
     @staticmethod
     def key_set(target: Value, key: str, item: Value) -> None:
         target.key_set(key, item)
+
+    @staticmethod
+    def call(target: Value, args: list[Value]) -> Value:
+        return target.call(args)
 
 
 class Value[Subclass, TreeNode]():
@@ -227,6 +232,12 @@ class Value[Subclass, TreeNode]():
         _ = key, item
         raise XbRuntimeError(
             f"type '{self.type_name}' does not support key assignment"
+        )
+
+    def call(self, args: list[Value]) -> Value:
+        _ = args
+        raise XbRuntimeError(
+            f"type '{self.type_name}' does not support being called"
         )
 
 
@@ -508,3 +519,54 @@ class Object(Value["Object", "t.Object"]):
             raise XbRuntimeError(f'field "{key}" is constant')
 
         self._dict[key].value = item
+
+
+class Function(Value["Function", "t.Function"]):
+    type_name = "function"
+
+    def __init__(self, param_names: list[str], body: t.Expr, closure: Environment) -> None:
+        self.param_names = param_names
+        self.body = body
+        self.closure = closure
+
+    @staticmethod
+    def from_node(node, env):
+        return Function(
+            [str(ident.token) for ident in node.params.identifiers],
+            node.body,
+            env,
+        )
+
+    @classmethod
+    def cast(cls, value: Value):
+        if type(value) is Function:
+            return value
+
+        return super().cast(value)
+
+    def display(self) -> str:
+        return f"{self.type_name} ({", ".join(self.param_names)})"
+
+    def eq(self, other) -> Value:
+        # Functions are only equal by reference
+        return Boolean(self is other)
+
+    def call(self, args: list[Value]) -> Value:
+        # TODO: create an environment with parameter names defined
+        # using the arg values, using the closure env as its parent?
+
+        if len(args) != len(self.param_names):
+            # TODO: reevaluate whether to give more grace in this situation
+            raise XbRuntimeError(
+                f"{self.type_name} called with incorrect number of arguments"
+            )
+
+        # Create a new environment which is a child of the environment the
+        # function was defined in.
+        call_env = Environment(self.closure)
+
+        for name, value in zip(self.param_names, args):
+            # TODO: perhaps add more nuance to how the names are defined
+            call_env.declare_const(name, value)
+
+        return self.body.evaluate(call_env)

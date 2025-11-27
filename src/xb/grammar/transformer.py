@@ -57,6 +57,9 @@ class AstTransformer(Transformer):
     neg = t.Negate
     not_ = t.Not
 
+    # call
+    call = t.Call
+
     # access
     key_access = t.KeyAccess
     index_access = t.IndexAccess
@@ -68,11 +71,15 @@ class AstTransformer(Transformer):
     # constructs
     array = collect_args(t.Array)
     object = collect_args(t.Object)
+    function = t.Function
 
+    # construct/helper nodes
     key = t.Key
     infer_pair = t.InferPair
     const_pair = t.ConstPair
     var_pair = t.VarPair
+    params = collect_args(t.Params)
+    args = collect_args(t.Args)
 
     # literals
     number = t.Number

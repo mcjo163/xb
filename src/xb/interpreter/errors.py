@@ -11,3 +11,8 @@ class XbError(Exception):
 class XbRuntimeError(XbError):
     def __init__(self, message: str) -> None:
         super().__init__("runtime", message)
+
+
+class XbInternalError(XbError):
+    def __init__(self, message: str) -> None:
+        super().__init__("internal", message)

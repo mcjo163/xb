@@ -39,33 +39,41 @@ p_block    : "(" block ")"
 ?coalesce  : unary
            | coalesce "??" unary
 
-?unary     : access
+?unary     : acc_call
            | "-" unary -> neg
            | "!" unary -> not_
 
-?access    : atom
-           | access "." key      -> key_access
-           | access "[" expr "]" -> index_access
+?acc_call  : atom
+           | acc_call "." key      -> key_access
+           | acc_call "[" expr "]" -> index_access
+           | acc_call "(" args ")" -> call
 
 ?atom      : literal
            | construct
            | identifier
            | p_block
 
-?construct : object
-           | array
+?construct : array
+           | object
+           | function
 
 ?literal   : number
            | string
            | bool
            | "()"   -> empty
 
-array      : "[" (expr ("," expr)* ","?)? "]"
+array      : "[" _expr_list "]"
 object     : "{" (pair ("," pair)* ","?)? "}"
+function   : "fn" "(" params ")" expr
 
 pair       : identifier   -> infer_pair
            | key ":" expr -> const_pair
            | key "=" expr -> var_pair
+
+params  : (identifier ("," identifier)* ","?)?
+args    : _expr_list
+
+_expr_list : (expr ("," expr)* ","?)?
 
 identifier : IDENT
 key        : IDENT

@@ -293,13 +293,18 @@ class Not(Unary):
         return Op.not_(self.val.evaluate(env))
 
 
-class Access(Unary):
+@dataclass
+class Args(AstNode):
+    exprs: list[Expr]
+
+
+class AccessOrCall(Unary):
     pass
 
 
 @dataclass
-class KeyAccess(Access):
-    lhs: Access
+class KeyAccess(AccessOrCall):
+    lhs: AccessOrCall
     key: Key
 
     def evaluate(self, env):
@@ -316,8 +321,8 @@ class KeyAccess(Access):
 
 
 @dataclass
-class IndexAccess(Access):
-    lhs: Access
+class IndexAccess(AccessOrCall):
+    lhs: AccessOrCall
     index_expr: Expr
 
     def evaluate(self, env):
@@ -333,7 +338,19 @@ class IndexAccess(Access):
         return assign
 
 
-class Atom(Access):
+@dataclass
+class Call(AccessOrCall):
+    lhs: AccessOrCall
+    args: Args
+
+    def evaluate(self, env):
+        return Op.call(
+            self.lhs.evaluate(env),
+            [e.evaluate(env) for e in self.args.exprs],
+        )
+
+
+class Atom(AccessOrCall):
     pass
 
 
@@ -449,3 +466,17 @@ class Object(Construct):
 
     def evaluate(self, env):
         return v.Object.from_node(self, env)
+
+
+@dataclass
+class Params(AstNode):
+    identifiers: list[Identifier]
+
+
+@dataclass
+class Function(Construct):
+    params: Params
+    body: Expr
+
+    def evaluate(self, env):
+        return v.Function.from_node(self, env)

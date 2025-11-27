@@ -1,8 +1,11 @@
 from __future__ import annotations
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from xb.interpreter.errors import XbRuntimeError
-from xb.interpreter.value import Value
+
+if TYPE_CHECKING:
+    from xb.interpreter.value import Value
 
 
 @dataclass
